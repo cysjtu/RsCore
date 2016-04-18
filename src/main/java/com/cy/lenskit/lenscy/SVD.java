@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -20,10 +21,16 @@ import org.grouplens.lenskit.core.LenskitRecommender;
 import org.grouplens.lenskit.data.sql.JDBCRatingDAO;
 import org.grouplens.lenskit.data.sql.SQLStatementFactory;
 import org.grouplens.lenskit.iterative.IterationCount;
+import org.grouplens.lenskit.knn.user.NeighborFinder;
+import org.grouplens.lenskit.knn.user.SnapshotNeighborFinder;
 import org.grouplens.lenskit.mf.funksvd.FeatureCount;
 import org.grouplens.lenskit.mf.funksvd.FunkSVDItemScorer;
+import org.grouplens.lenskit.mf.funksvd.FunkSVDUpdateRule;
+import org.grouplens.lenskit.mf.funksvd.RuntimeUpdate;
 import org.grouplens.lenskit.slopeone.DeviationDamping;
 import org.grouplens.lenskit.slopeone.SlopeOneItemScorer;
+import org.grouplens.lenskit.vectors.SparseVector;
+import org.grouplens.lenskit.vectors.VectorEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -81,11 +88,11 @@ public class SVD {
 		
 		config.bind(UserMeanBaseline.class,ItemScorer.class).to(ItemMeanRatingItemScorer.class);
 		
-		config.set(FeatureCount.class).to(25);
+		config.set(FeatureCount.class).to(20);
 		
-		config.set(IterationCount.class).to(125);
+		config.set(IterationCount.class).to(20);
 		
-		
+		config.bind(NeighborFinder.class).to(SnapshotNeighborFinder.class);
 		
 		
 		
@@ -150,12 +157,39 @@ public class SVD {
 	
 	public double predictScore(long uid,long itemId){
 		
+		List<Long> items=new ArrayList<Long>();
 		
+		pred.predict(uid, items);
 		double score = pred.predict(uid, itemId);
 		return score;
 		
 	}
 
+	
+	public List<Double> predictScore(long uid,List<Long> items){
+		
+		
+		
+		SparseVector ret=pred.predict(uid, items);
+		
+		if(ret.size()!=items.size()){
+			System.err.println("ret.size()!=items.size()");
+			System.exit(0);
+			
+		}
+		
+		List<Double> res=new ArrayList<Double>(items.size());
+		
+		
+		for(long item:items){
+			res.add(ret.get(item));
+		}
+
+		return res;
+		
+	}
+
+	
 	
 	
 	public void finalize(){

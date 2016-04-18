@@ -132,8 +132,10 @@ public class SVD_PlusPlus extends SVD_SGD {
 			}
 			Rmse = Math.sqrt(Rmse / nRateNum);
 			print("n = " + n + " Rmse = " + Rmse);
-			if (Rmse > mLastRmse)
-				break;
+			
+			
+			
+			
 			mLastRmse = Rmse;
 			gama *= 0.9;
 		}
@@ -206,20 +208,29 @@ public class SVD_PlusPlus extends SVD_SGD {
 		String mLine;
 		double Rmse = 0;
 		int nNum = 0;
-		String select_ratings_test="select user,item,rating from ml_1m_test ";
+		String select_ratings_test="select user_id,item_id,rate from action_processed_test ";
 		
 		List<Map<String,Object>> ratings=jdbc.queryForList(select_ratings_test);
 
+		double cnt=ratings.size();
+		int step=0;
+		
 		for(Map<String,Object> r:ratings) {
-			userId = ((Long) r.get("user")).intValue();
 			
-			itemId = ((Long) r.get("item")).intValue();
+			if((++step)%1000==0){
+				System.err.println(step/cnt);
+			}
+			
+			
+			userId = ((Integer) r.get("user_id")).intValue();
+			
+			itemId = ((Integer) r.get("item_id")).intValue();
 			if (isTranspose) {
 				int temp = userId;
 				userId = itemId;
 				itemId = temp;
 			}
-			rate =((Integer) r.get("rating")).floatValue();
+			rate =((Double) r.get("rate")).floatValue();
 
 			float ru;
 			if (mHisMatrix[mUserId2Map.get(userId)].size() != 0)
@@ -240,7 +251,14 @@ public class SVD_PlusPlus extends SVD_SGD {
 					+ bi[mItemId2Map.get(itemId)]
 					+ mt.getInnerProduct(z, q[mItemId2Map.get(itemId)]);
 			
+			if (rui > mMaxRate)
+				rui = mMaxRate;
+			else if (rui < mMinRate)
+				rui = mMinRate;
+			
 			Rmse += (rate - rui) * (rate - rui);
+			
+			
 			nNum++;
 			
 		}

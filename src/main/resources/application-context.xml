@@ -61,4 +61,26 @@
 	</bean>
 
 
+     <aop:config>
+       <aop:aspect id="TestAspect" ref="lenskitAdvice">  
+       
+            <aop:pointcut id="servicem" expression="execution(* org.grouplens.lenskit.knn.item.*.*(..))" />  
+            
+            <aop:pointcut id="p2" expression="execution(* com.cy.lenskit.lenscy.util.*.*(..))" />  
+             
+            <aop:before pointcut-ref="servicem" method="BeforeAdvice"/>  
+            <!--  
+            <aop:after  pointcut-ref="servicem" method="after"/>
+            <aop:around  pointcut-ref="servicem" method="doBasicProfiling"/>
+            <aop:after-throwing  pointcut-ref="servicem" method="doAfterThrow" throwing="ex"/> 
+            -->    
+        </aop:aspect>  
+    </aop:config>        
+    
+    <bean id="lenskitAdvice" class="com.cy.lenskit.lenscy.advice.LenskitAdvice"/>  
+   
+   
+   
+
+
 </beans> 

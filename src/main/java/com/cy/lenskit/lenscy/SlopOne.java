@@ -3,6 +3,7 @@ package com.cy.lenskit.lenscy;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +27,7 @@ import org.grouplens.lenskit.slopeone.SlopeOneItemScorer;
 import org.grouplens.lenskit.transform.normalize.MeanCenteringVectorNormalizer;
 import org.grouplens.lenskit.transform.normalize.UserVectorNormalizer;
 import org.grouplens.lenskit.transform.normalize.VectorNormalizer;
+import org.grouplens.lenskit.vectors.SparseVector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
@@ -160,6 +162,31 @@ public class SlopOne {
 		return score;
 		
 	}
+	
+	
+	public List<Double> predictScore(Integer uid, List<Long> items) {
+		// TODO Auto-generated method stub
+		SparseVector ret=pred.predict(uid, items);
+		
+		if(ret.size()!=items.size()){
+			System.err.println("ret.size()!=items.size()");
+			System.exit(0);
+			
+		}
+		
+		List<Double> res=new ArrayList<Double>(items.size());
+		
+		
+		for(long item:items){
+			res.add(ret.get(item));
+		}
+
+		return res;
+		
+	}
+
+	
+	
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub

@@ -3,6 +3,7 @@ package com.cy.lenskit.lenscy;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -12,20 +13,27 @@ import org.grouplens.lenskit.RatingPredictor;
 import org.grouplens.lenskit.RecommenderBuildException;
 import org.grouplens.lenskit.baseline.BaselineScorer;
 import org.grouplens.lenskit.baseline.ItemMeanRatingItemScorer;
+import org.grouplens.lenskit.basic.SimpleRatingPredictor;
 import org.grouplens.lenskit.core.LenskitConfiguration;
 import org.grouplens.lenskit.core.LenskitRecommender;
+import org.grouplens.lenskit.data.pref.PreferenceDomain;
 import org.grouplens.lenskit.data.sql.JDBCRatingDAO;
 import org.grouplens.lenskit.data.sql.SQLStatementFactory;
 import org.grouplens.lenskit.knn.NeighborhoodSize;
 import org.grouplens.lenskit.knn.item.ItemItemScorer;
+import org.grouplens.lenskit.knn.item.ModelSize;
+import org.grouplens.lenskit.knn.item.model.ItemItemModel;
 import org.grouplens.lenskit.mf.funksvd.FeatureCount;
 import org.grouplens.lenskit.transform.normalize.BaselineSubtractingUserVectorNormalizer;
 import org.grouplens.lenskit.transform.normalize.UserVectorNormalizer;
+import org.grouplens.lenskit.vectors.SparseVector;
+import org.grouplens.lenskit.vectors.similarity.CosineVectorSimilarity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+import com.cy.lenskit.lenscy.model.CachedItemSimilarMatrixModel;
 import com.cy.lenskit.lenscy.util.LoaderService;
 
 public class Item2Item {
@@ -70,7 +78,11 @@ public class Item2Item {
 		
 	}
 	
+	public void selfInjectInit(){
+		
+	}
 	public void init(){
+		
 		
 		config = new LenskitConfiguration();
 		config.bind(ItemScorer.class).to(ItemItemScorer.class);
@@ -80,13 +92,21 @@ public class Item2Item {
 		
 		config.set(NeighborhoodSize.class).to(20);
 		
+		config.set(ModelSize.class).to(5000);
+		
+		config.within(ItemItemScorer.class).bind(ItemItemModel.class).to(CachedItemSimilarMatrixModel.class);
+		
+		PreferenceDomain predom=new PreferenceDomain(0, 10);
+		
+		config.bind(PreferenceDomain.class).to(predom);
+		
 		//=================================
 		
         con = null; //定义一个MYSQL链接对象
         try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			
-			jdbcUrl=(jdbcUrl!=null && !jdbcUrl.isEmpty())?jdbcUrl:"jdbc:mysql://127.0.0.1:3306/lenskit";
+			jdbcUrl=(jdbcUrl!=null && !jdbcUrl.isEmpty())?jdbcUrl:"jdbc:mysql://127.0.0.1:3306/easyrec";
 			user=(null!=user && !user.isEmpty())?user:"root";
 			passwd=(null!=passwd && !passwd.isEmpty())?passwd:"cy1993";
 			
@@ -153,8 +173,38 @@ public class Item2Item {
 		
 	}
 	
+	public List<Double> predictScore(Integer uid, List<Long> items) {
+		// TODO Auto-generated method stub
+		SparseVector ret=pred.predict(uid, items);
+		
+		if(ret.size()!=items.size()){
+			System.err.println("ret.size()!=items.size()");
+			System.exit(0);
+			
+		}
+		
+		List<Double> res=new ArrayList<Double>(items.size());
+		
+		
+		for(long item:items){
+			res.add(ret.get(item));
+		}
+
+		return res;
+		
+	}
+
+	
+	
 	
 	public static void main(String[] args) {
+		
+		ApplicationContext ctx=new ClassPathXmlApplicationContext("classpath:application-context.xml");
+		LoaderService lds=(LoaderService) ctx.getBean("loaderService");
+		
+		ctx.getBean("lenskitAdvice");
+		List<Map<String,Object>> tests=lds.getTestSet();
+		
 		// TODO Auto-generated method stub
 		String jdbcUrl="jdbc:mysql://127.0.0.1:3306/lenskit";
 		String user="root";
@@ -168,11 +218,11 @@ public class Item2Item {
 		
 		//===============
 		
-		ApplicationContext ctx=new ClassPathXmlApplicationContext("application-context.xml");
 		
-		LoaderService lds=(LoaderService) ctx.getBean("loaderService");
+		
+		
 
-		List<Map<String,Object>> tests=lds.getTestSet();
+		
 		
 		double RMSE=0.0;
 		

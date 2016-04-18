@@ -82,18 +82,18 @@ public class SVD_SGD implements Trainer {
 	
 	
 	
-	private void mapping(List<Long> users,List<Long> items) throws Exception {
+	private void mapping(List<Integer> users,List<Integer> items) throws Exception {
 		
 		int mLineNum = 0;
 	
 		if (isTranspose) {
-			List<Long> temp = users;
+			List<Integer> temp = users;
 			users = items;
 			items = temp;
 		}
 		
 		
-		for(Long user:users) {
+		for(Integer user:users) {
 			
 			
 			
@@ -108,7 +108,7 @@ public class SVD_SGD implements Trainer {
 		}
 		
 		
-		for(Long item:items) {
+		for(Integer item:items) {
 			
 			
 			
@@ -231,6 +231,7 @@ public class SVD_SGD implements Trainer {
 						rui = mMaxRate;
 					else if (rui < mMinRate)
 						rui = mMinRate;
+					
 					float e = mRateMatrix[i].get(j).getRate() - rui;
 
 					//log.info(e);
@@ -251,8 +252,7 @@ public class SVD_SGD implements Trainer {
 				}
 			Rmse = Math.sqrt(Rmse / nRateNum);
 			print("n = " + n + " Rmse = " + Rmse);
-			if (Rmse > mLastRmse)
-				break;
+			
 			mLastRmse = Rmse;
 			gama *= 0.9;
 		}
@@ -318,25 +318,25 @@ public class SVD_SGD implements Trainer {
 		
 		print("------Mapping UserId and ItemId ...------");
 		print("------reading train file ...------");
-		String select_users_train="select distinct user from ml_1m ";
-		String select_items_train="select distinct item from ml_1m ";
-		String select_users_test="select distinct user from ml_1m_test ";
-		String select_items_test="select distinct item from ml_1m_test ";
-		String select_ratings_train="select user,item,rating from ml_1m ";
-		String select_ratings_test="select user,item,rating from ml_1m_test ";
+		String select_users_train="select distinct user_id from action_processed ";
+		String select_items_train="select distinct item_id from action_processed ";
+		String select_users_test="select distinct user_id from action_processed_test ";
+		String select_items_test="select distinct item_id from action_processed_test ";
+		String select_ratings_train="select user_id,item_id,rate from action_processed ";
+		String select_ratings_test="select user_id,item_id,rate from action_processed_test ";
 		
-		List<Long> items=null,users=null;
+		List<Integer> items=null,users=null;
 		
-		users=jdbc.queryForList(select_users_train, Long.class);
-		items=jdbc.queryForList(select_items_train, Long.class);
+		users=jdbc.queryForList(select_users_train, Integer.class);
+		items=jdbc.queryForList(select_items_train, Integer.class);
 		
 		mapping(users, items);
 		print("------read train file complete!------");
 
 		print("------reading test file ...------");
 		
-		users=jdbc.queryForList(select_users_test, Long.class);
-		items=jdbc.queryForList(select_items_test, Long.class);
+		users=jdbc.queryForList(select_users_test, Integer.class);
+		items=jdbc.queryForList(select_items_test, Integer.class);
 
 		mapping(users, items);
 		print("------read test file complete!------");
@@ -367,15 +367,17 @@ public class SVD_SGD implements Trainer {
 		for(Map<String,Object> r:ratings){
 			
 			
-			userId = ((Long) r.get("user")).intValue();
+			userId = ((Integer) r.get("user_id")).intValue();
 			
-			itemId = ((Long) r.get("item")).intValue();
+			itemId = ((Integer) r.get("item_id")).intValue();
 			if (isTranspose) {
 				int temp = userId;
 				userId = itemId;
 				itemId = temp;
 			}
-			rate =((Integer) r.get("rating")).floatValue();
+			rate =((Double) r.get("rate")).floatValue();
+			
+			if(rate==0.0) rate=1.0f;
 			
 			mLineNum++;
 			mRateMatrix[mUserId2Map.get(userId)].add(new Node(mItemId2Map
@@ -391,6 +393,8 @@ public class SVD_SGD implements Trainer {
 		mean /= mLineNum;
 		
 		log.error("mean="+mean);
+		log.error("min="+mMinRate+"  "+"max="+mMaxRate);
+		
 		init();
 		
 	}
@@ -409,29 +413,40 @@ public class SVD_SGD implements Trainer {
 		String mLine;
 		double Rmse = 0;
 		int nNum = 0;
-		String select_ratings_test="select user,item,rating from ml_1m_test ";
+		String select_ratings_test="select user_id,item_id,rate from action_processed_test ";
 		
 		List<Map<String,Object>> ratings=jdbc.queryForList(select_ratings_test);
 		
-		
+		double cnt=ratings.size();
+		int step=0;
 		for(Map<String,Object> r:ratings) {
 			
-			userId = ((Long) r.get("user")).intValue();
+			if((++step)%1000==0){
+				System.err.println(step/cnt);
+			}
+			userId = ((Integer) r.get("user_id")).intValue();
 			
-			itemId = ((Long) r.get("item")).intValue();
+			itemId = ((Integer) r.get("item_id")).intValue();
 			if (isTranspose) {
 				int temp = userId;
 				userId = itemId;
 				itemId = temp;
 			}
-			rate =((Integer) r.get("rating")).floatValue();
+			rate =((Double) r.get("rate")).floatValue();
 
+			if(rate==0.0) continue;
 			
 			float rui = mean
 					+ bu[mUserId2Map.get(userId)]
 					+ bi[mItemId2Map.get(itemId)]
 					+ mt.getInnerProduct(p[mUserId2Map.get(userId)],
 							q[mItemId2Map.get(itemId)]);
+			
+			if (rui > mMaxRate)
+				rui = mMaxRate;
+			else if (rui < mMinRate)
+				rui = mMinRate;
+			
 			
 			
 			Rmse += (rate - rui) * (rate - rui);
